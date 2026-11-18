@@ -8,8 +8,9 @@ The program in [`hello_world/main.c`](hello_world/main.c):
 
 1. Stops the watchdog and sets **DCO / SMCLK / MCLK = 8 MHz**
 2. Configures **eUSCI_A0 UART** — **TX P2.0**, **RX P2.1**, **19200 baud 8N1**
-3. Unlocks GPIO (`LOCKLPM5`)
-4. In a loop: toggles **P1.0** and transmits `Hello World\r\n` on UCA0TXD
+3. Enables an **interrupt-based RX** path (`UCRXIE` + `EUSCI_A0_VECTOR`) into a 64-byte ring buffer
+4. Unlocks GPIO (`LOCKLPM5`)
+5. In a loop: drains/echoes received bytes, toggles **P1.0**, and transmits `Hello World\r\n`
 
 P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). UART pinmux matches the requested UCA0 mapping on this MCU.
 
@@ -101,6 +102,8 @@ If the linked file appears broken after a copy/move, refresh the project or re-i
 2. **Run → Debug** (bug toolbar button). CCS uses `targetConfigs/MSP430FR5962.ccxml` (TI MSP430 USB).
 3. After load, resume to run the P1.0 blink and UART output.
 
-Connect a USB–TTL adapter (or scope/logic analyzer) to **P2.0 (TX)** / GND at **19200 8N1** to see `Hello World`.
+Connect a USB–TTL adapter to **P2.0 (TX)** / **P2.1 (RX)** / GND at **19200 8N1**:
+- You should see periodic `Hello World` lines from the MCU
+- Bytes you send are received in the UCA0 RX ISR and echoed back
 
 You can also load the `.out` with UniFlash onto **MSP430FR5962**.
