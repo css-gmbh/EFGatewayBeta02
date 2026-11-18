@@ -18,3 +18,14 @@
 Debug/
 Release/
 .build/
+.launches/
+.xdchelp
+*.tmp
+*.bak
+*.dlt
+*.pp
+*.rl
+*.ss
+*.lst
+*.asm
+*_linkInfo.xml
