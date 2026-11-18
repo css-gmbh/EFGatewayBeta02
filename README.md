@@ -4,21 +4,20 @@ Minimal **MSP430FR5962** hello-world example for the EF Gateway Beta 02 platform
 
 ## What it does
 
-The program in [`hello_world/main.c`](hello_world/main.c) is a conventional TI FRAM blink demo:
+The program in [`hello_world/main.c`](hello_world/main.c):
 
-1. Stops the watchdog
-2. Unlocks GPIO (`LOCKLPM5`)
-3. Toggles **P1.0** in a software delay loop
+1. Stops the watchdog and sets **DCO / SMCLK / MCLK = 8 MHz**
+2. Configures **eUSCI_A0 UART** — **TX P2.0**, **RX P2.1**, **19200 baud 8N1**
+3. Unlocks GPIO (`LOCKLPM5`)
+4. In a loop: toggles **P1.0** and transmits `Hello World\r\n` on UCA0TXD
 
-P1.0 is the standard TI demo LED pin on many MSP430 LaunchPads (for example LED2 on MSP-EXP430FR5969). This repo does not yet document custom EF Gateway LED wiring, so the example stays on that conventional pin rather than inventing board-specific hardware. Remap `P1.0` in `main.c` if your board uses a different LED.
-
-UART “Hello World” is intentionally omitted until board UART pinmux is documented.
+P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). UART pinmux matches the requested UCA0 mapping on this MCU.
 
 ## Layout
 
 ```
 hello_world/
-  main.c                         # shared blink source (P1.0)
+  main.c                         # shared blink + UART source
   Makefile                       # open-toolchain build (msp430-elf-gcc)
 ccs/msp430fr5962_hello_world/    # Code Composer Studio project
   .project / .cproject / .ccsproject
@@ -100,6 +99,8 @@ If the linked file appears broken after a copy/move, refresh the project or re-i
 
 1. Connect the FET / LaunchPad USB.
 2. **Run → Debug** (bug toolbar button). CCS uses `targetConfigs/MSP430FR5962.ccxml` (TI MSP430 USB).
-3. After load, resume to run the P1.0 blink.
+3. After load, resume to run the P1.0 blink and UART output.
+
+Connect a USB–TTL adapter (or scope/logic analyzer) to **P2.0 (TX)** / GND at **19200 8N1** to see `Hello World`.
 
 You can also load the `.out` with UniFlash onto **MSP430FR5962**.
