@@ -29,5 +29,15 @@
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/hello_world/main.c</locationURI>
 		</link>
+		<link>
+			<name>crc16_iso15693.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/hello_world/crc16_iso15693.c</locationURI>
+		</link>
+		<link>
+			<name>crc16_iso15693.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/hello_world/crc16_iso15693.h</locationURI>
+		</link>
 	</linkedResources>
 </projectDescription>

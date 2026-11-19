@@ -19,7 +19,8 @@ P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs)
 
 ```
 hello_world/
-  main.c                         # shared blink + UART source
+  main.c                         # blink + UART RX framing
+  crc16_iso15693.c/.h            # ISO 15693-style CRC-16 helper (poly 0x0810)
   Makefile                       # open-toolchain build (msp430-elf-gcc)
 ccs/msp430fr5962_hello_world/    # Code Composer Studio project
   .project / .cproject / .ccsproject
@@ -27,7 +28,11 @@ ccs/msp430fr5962_hello_world/    # Code Composer Studio project
   targetConfigs/MSP430FR5962.ccxml
 ```
 
-The CCS project **links** `hello_world/main.c` (no duplicated application logic).
+The CCS project **links** the shared `hello_world/` sources (no duplicated application logic).
+
+### CRC helper
+
+[`crc16_iso15693()`](hello_world/crc16_iso15693.h) implements an ISO 15693-style CRC-16 (init `0xFFFF`, reflected/LSB-first, final XOR `0xFFFF`) with generator polynomial **`0x0810`**. The RX frame placeholder calls it on each completed buffer.
 
 ---
 

@@ -13,6 +13,8 @@
 #include <msp430.h>
 #include <stdint.h>
 
+#include "crc16_iso15693.h"
+
 /* TI UG recommended for 8 MHz SMCLK, 19200 baud, oversampling (UCOS16=1):
  * UCBRx=26, UCBRFx=0, UCBRSx=0xB6
  */
@@ -33,10 +35,13 @@ static volatile uint16_t rx_len;              /* next write index / byte count *
 /* Placeholder for a completed UART frame (after ~50 ms RX idle). */
 static void rx_frame_placeholder(volatile uint8_t *buf, uint16_t len)
 {
+    uint16_t crc;
+
+    /* Example use of the CRC helper on the received frame */
+    crc = crc16_iso15693((const uint8_t *)buf, len);
+    (void)crc;
+
     /* TODO: process the received frame here */
-    if (len > 0U) {
-        (void)buf[0];                         /* keep buffer live for tooling/builds */
-    }
 }
 
 static void clock_init_8mhz(void)

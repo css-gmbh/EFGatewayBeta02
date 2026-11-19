@@ -28,7 +28,7 @@ endif
 # Leave empty if your toolchain already finds them via -mmcu=.
 SUPPORT_FILE_DIRECTORY ?=
 
-CFLAGS  = -mmcu=$(DEVICE) -Os -g -Wall -Wextra
+CFLAGS  = -mmcu=$(DEVICE) -Os -g -Wall -Wextra -I.
 LDFLAGS = -mmcu=$(DEVICE)
 
 ifneq ($(SUPPORT_FILE_DIRECTORY),)
@@ -36,7 +36,7 @@ ifneq ($(SUPPORT_FILE_DIRECTORY),)
   LDFLAGS += -L$(SUPPORT_FILE_DIRECTORY) -T $(DEVICE).ld
 endif
 
-SRCS = main.c
+SRCS = main.c crc16_iso15693.c
 OBJS = $(SRCS:.c=.o)
 
 .PHONY: all clean flash size
