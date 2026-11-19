@@ -4,9 +4,10 @@
  * UART (UCA0): TX = P2.0, RX = P2.1, 19200 baud, 8N1
  * Clock: DCO / SMCLK = 8 MHz (TI recommended baud settings for 19200)
  *
- * RX is interrupt-driven (UCRXIE + EUSCI_A0_VECTOR) into a ring buffer.
- * Main loop drains the buffer (echo), blinks P1.0, and periodically TX's
- * "Hello World\r\n".
+ * RX is interrupt-driven into a linear 256-byte buffer starting at index 0.
+ * Each received byte restarts Timer_A0 (~50 ms). When the idle timer expires,
+ * the buffer pointer (and length) are passed to a placeholder, then RX resumes
+ * at index 0.
  */
 
 #include <msp430.h>
@@ -18,12 +19,25 @@
 #define UART_UCBRW   26U
 #define UART_UCMCTLW (UCOS16 | (0xB6U << 8))
 
-#define RX_BUF_SIZE  64U
+#define RX_BUF_SIZE  256U
+
+/*
+ * Idle gap that ends a receive frame.
+ * Timer_A0: SMCLK/8 = 1 MHz → 50000 ticks ≈ 50 ms.
+ */
+#define RX_IDLE_TIMER_TICKS  50000U
 
 static volatile uint8_t rx_buf[RX_BUF_SIZE];
-static volatile uint8_t rx_head; /* next write index (ISR) */
-static volatile uint8_t rx_tail; /* next read index (main) */
-static volatile uint8_t rx_overflow;
+static volatile uint16_t rx_len;              /* next write index / byte count */
+
+/* Placeholder for a completed UART frame (after ~50 ms RX idle). */
+static void rx_frame_placeholder(volatile uint8_t *buf, uint16_t len)
+{
+    /* TODO: process the received frame here */
+    if (len > 0U) {
+        (void)buf[0];                         /* keep buffer live for tooling/builds */
+    }
+}
 
 static void clock_init_8mhz(void)
 {
@@ -35,6 +49,26 @@ static void clock_init_8mhz(void)
     CSCTL2 = SELA__VLOCLK | SELS__DCOCLK | SELM__DCOCLK;
     CSCTL3 = DIVA__1 | DIVS__1 | DIVM__1;     /* ACLK/SMCLK/MCLK /1 */
     CSCTL0_H = 0;                             /* lock CS */
+}
+
+static void rx_idle_timer_init(void)
+{
+    /* Stopped until the first RX byte; CCR0 interrupt marks end of frame */
+    TA0CTL = TASSEL__SMCLK | ID__8 | MC__STOP | TACLR;
+    TA0EX0 = TAIDEX_0;                        /* extra /1 → SMCLK/8 = 1 MHz */
+    TA0CCR0 = RX_IDLE_TIMER_TICKS - 1U;       /* ~50 ms */
+    TA0CCTL0 = CCIE;
+}
+
+static void rx_idle_timer_restart(void)
+{
+    /* Clear count and (re)start up-mode so each byte resets the ~50 ms gap */
+    TA0CTL = TASSEL__SMCLK | ID__8 | MC__UP | TACLR;
+}
+
+static void rx_idle_timer_stop(void)
+{
+    TA0CTL = TASSEL__SMCLK | ID__8 | MC__STOP;
 }
 
 static void uart_init_uca0(void)
@@ -69,30 +103,12 @@ static void uart_puts(const char *s)
     }
 }
 
-/* Non-blocking: 1 if a byte was read into *out, else 0 */
-static int uart_rx_try_get(uint8_t *out)
-{
-    uint8_t head;
-    uint8_t tail;
-
-    __disable_interrupt();
-    head = rx_head;
-    tail = rx_tail;
-    if (head == tail) {
-        __enable_interrupt();
-        return 0;
-    }
-    *out = rx_buf[tail];
-    rx_tail = (uint8_t)((tail + 1U) % RX_BUF_SIZE);
-    __enable_interrupt();
-    return 1;
-}
-
 int main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;
 
     clock_init_8mhz();
+    rx_idle_timer_init();
 
     P1DIR |= BIT0;                            /* LED / demo GPIO */
     P1OUT &= ~BIT0;
@@ -105,32 +121,20 @@ int main(void)
 
     for (;;) {
         volatile unsigned long i;
-        uint8_t c;
-
-        /* Drain interrupt RX ring; echo each received byte */
-        while (uart_rx_try_get(&c)) {
-            uart_putc((char)c);
-        }
 
         P1OUT ^= BIT0;
         uart_puts("Hello World\r\n");
 
-        /* Rough ~0.5 s delay at 8 MHz; RX ISR still runs */
+        /* Rough ~0.5 s delay at 8 MHz; RX + idle-timer ISRs still run */
         i = 400000UL;
         do {
             i--;
-            while (uart_rx_try_get(&c)) {
-                uart_putc((char)c);
-            }
         } while (i != 0);
-
-        (void)rx_overflow;
     }
 }
 
 /*
- * eUSCI_A0 RX ISR — store bytes in the ring buffer.
- * Works with TI CCS (#pragma vector) and msp430-elf-gcc (interrupt attribute).
+ * eUSCI_A0 RX ISR — append bytes from index 0; restart idle timer.
  */
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = EUSCI_A0_VECTOR
@@ -146,17 +150,39 @@ void __attribute__((interrupt(EUSCI_A0_VECTOR))) eusci_a0_isr(void)
         break;
     case UCIV__UCRXIFG: {
         uint8_t c = (uint8_t)UCA0RXBUF;       /* reading RXBUF clears UCRXIFG */
-        uint8_t next = (uint8_t)((rx_head + 1U) % RX_BUF_SIZE);
 
-        if (next != rx_tail) {
-            rx_buf[rx_head] = c;
-            rx_head = next;
-        } else {
-            rx_overflow = 1;                  /* drop byte if ring is full */
+        if (rx_len < RX_BUF_SIZE) {
+            rx_buf[rx_len] = c;
+            rx_len++;
+            rx_idle_timer_restart();
         }
+        /* If full, wait for idle timeout to hand off and reset */
         break;
     }
     default:
         break;
+    }
+}
+
+/*
+ * Timer_A0 CCR0 — ~50 ms since last RX byte → frame complete.
+ */
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void timer0_a0_isr(void)
+#elif defined(__GNUC__)
+void __attribute__((interrupt(TIMER0_A0_VECTOR))) timer0_a0_isr(void)
+#else
+#error "Unsupported compiler for TIMER0_A0 ISR"
+#endif
+{
+    uint16_t len;
+
+    rx_idle_timer_stop();                     /* one-shot until next RX byte */
+
+    len = rx_len;
+    if (len > 0U) {
+        rx_frame_placeholder(rx_buf, len);    /* hand off buffer pointer */
+        rx_len = 0U;                          /* next frame starts at index 0 */
     }
 }

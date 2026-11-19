@@ -8,9 +8,10 @@ The program in [`hello_world/main.c`](hello_world/main.c):
 
 1. Stops the watchdog and sets **DCO / SMCLK / MCLK = 8 MHz**
 2. Configures **eUSCI_A0 UART** — **TX P2.0**, **RX P2.1**, **19200 baud 8N1**
-3. Enables an **interrupt-based RX** path (`UCRXIE` + `EUSCI_A0_VECTOR`) into a 64-byte ring buffer
-4. Unlocks GPIO (`LOCKLPM5`)
-5. In a loop: drains/echoes received bytes, toggles **P1.0**, and transmits `Hello World\r\n`
+3. Enables **interrupt RX** into a linear **256-byte** buffer (from index 0); each byte restarts **Timer_A0 (~50 ms idle)**
+4. On idle timeout, passes the buffer pointer to `rx_frame_placeholder()`, then resumes RX at index 0
+5. Unlocks GPIO (`LOCKLPM5`)
+6. In a loop: toggles **P1.0** and transmits `Hello World\r\n`
 
 P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). UART pinmux matches the requested UCA0 mapping on this MCU.
 
@@ -104,6 +105,6 @@ If the linked file appears broken after a copy/move, refresh the project or re-i
 
 Connect a USB–TTL adapter to **P2.0 (TX)** / **P2.1 (RX)** / GND at **19200 8N1**:
 - You should see periodic `Hello World` lines from the MCU
-- Bytes you send are received in the UCA0 RX ISR and echoed back
+- Bytes you send fill `rx_buf[]` from index 0; after ~50 ms silence, `rx_frame_placeholder(buf, len)` is called and RX restarts at 0
 
 You can also load the `.out` with UniFlash onto **MSP430FR5962**.
