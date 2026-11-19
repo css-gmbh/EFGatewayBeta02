@@ -1,0 +1,31 @@
+# Build outputs
+*.o
+*.elf
+*.hex
+*.out
+*.map
+*.lst
+*.d
+
+# Editor / OS
+.DS_Store
+*~
+*.swp
+.vscode/
+.idea/
+
+# CCS / build trees
+Debug/
+Release/
+.build/
+.launches/
+.xdchelp
+*.tmp
+*.bak
+*.dlt
+*.pp
+*.rl
+*.ss
+*.lst
+*.asm
+*_linkInfo.xml
