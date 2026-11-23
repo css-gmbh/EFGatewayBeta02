@@ -39,5 +39,16 @@
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/hello_world/crc16_iso15693.h</locationURI>
 		</link>
+		<link>
+			<name>rs485_uca1.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/hello_world/rs485_uca1.c</locationURI>
+		</link>
+		<link>
+			<name>rs485_uca1.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/hello_world/rs485_uca1.h</locationURI>
+		</link>
 	</linkedResources>
 </projectDescription>
+
