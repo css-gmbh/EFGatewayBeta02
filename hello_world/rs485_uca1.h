@@ -1,11 +1,11 @@
 /*
- * eUSCI_A1 UART as half-duplex RS-485
+ * Half-duplex RS-485 with inverted UART polarity (idle-low)
  *
- *   TX  = P2.5 (UCA1TXD)
- *   RX  = P2.6 (UCA1RXD)
- *   DE  = P4.3 (driver enable, board-inverted: active low)
- *   /RE = P4.2 (receiver enable, board-inverted: active high)
- *   115200 baud, 8N1, SMCLK = 8 MHz
+ *   TX  = P2.5 (soft-UART — eUSCI has no line invert on FR5962)
+ *   RX  = P2.6
+ *   DE  = P4.3 (driver enable, active high)
+ *   /RE = P4.2 (receiver enable, active low)
+ *   115200 baud, 8N1 inverted, SMCLK = 8 MHz
  */
 
 #ifndef RS485_UCA1_H

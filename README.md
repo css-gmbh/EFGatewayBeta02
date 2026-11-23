@@ -41,8 +41,8 @@ The CCS project **links** the shared `hello_world/` sources (no duplicated appli
 
 [`rs485_init()`](hello_world/rs485_uca1.h) / `rs485_send()` drive half-duplex RS-485 on UCA1:
 
-- **TX P2.5 / RX P2.6** (secondary pinmux), **115200 8N1**
-- **DE P4.3** (active low), **/RE P4.2** (active high) — board-inverted vs classic MAX485; idle = receive; TX drives DE low and disables the receiver; `UCTXCPTIE` releases the bus after the last bit
+- **TX P2.5 / RX P2.6**, **115200 8N1 with inverted UART polarity** (idle low / start high). FR5962 eUSCI has no TX/RX invert, so this path is a **Timer_A2 soft-UART** on those pins
+- **DE P4.3** (active high), **/RE P4.2** (active low) — idle = receive; TX asserts DE and disables the receiver
 - Interrupt RX into a 256-byte buffer; **Timer_A1 ~50 ms idle** → `rs485_rx_frame_placeholder()`
 
 ---
