@@ -25,17 +25,21 @@ static volatile uint16_t rs485_tx_len;
 static volatile uint16_t rs485_tx_index;
 static volatile uint8_t rs485_tx_active;
 
-/* DE high = drive bus; /RE low = receive enabled (MAX485-style) */
+/*
+ * Direction control polarities (board-inverted vs classic MAX485):
+ *   TX: DE low,  /RE low
+ *   RX: DE high, /RE high
+ */
 static void rs485_set_tx_mode(void)
 {
-    P4OUT |= RS485_DE_BIT;                    /* DE = 1 */
-    P4OUT |= RS485_RE_BIT;                    /* /RE = 1 → receiver off */
+    P4OUT &= (uint8_t)~RS485_DE_BIT;          /* DE = 0 → drive bus */
+    P4OUT &= (uint8_t)~RS485_RE_BIT;          /* /RE = 0 → receiver off */
 }
 
 static void rs485_set_rx_mode(void)
 {
-    P4OUT &= (uint8_t)~RS485_DE_BIT;          /* DE = 0 */
-    P4OUT &= (uint8_t)~RS485_RE_BIT;          /* /RE = 0 → receiver on */
+    P4OUT |= RS485_DE_BIT;                    /* DE = 1 → driver off */
+    P4OUT |= RS485_RE_BIT;                    /* /RE = 1 → receiver on */
 }
 
 static void rs485_idle_timer_restart(void)

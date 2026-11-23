@@ -3,8 +3,8 @@
  *
  *   TX  = P2.5 (UCA1TXD)
  *   RX  = P2.6 (UCA1RXD)
- *   DE  = P4.3 (driver enable, active high)
- *   /RE = P4.2 (receiver enable, active low)
+ *   DE  = P4.3 (driver enable, board-inverted: active low)
+ *   /RE = P4.2 (receiver enable, board-inverted: active high)
  *   115200 baud, 8N1, SMCLK = 8 MHz
  */
 
