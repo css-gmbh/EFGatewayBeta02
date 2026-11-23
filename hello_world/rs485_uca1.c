@@ -110,8 +110,26 @@ uint8_t rs485_send(const uint8_t *data, uint16_t len)
     rs485_tx_active = 1U;
 
     rs485_set_tx_mode();
-    UCA1IFG &= (uint16_t)~UCTXCPTIFG;         /* clear stale complete flag */
-    UCA1IE = (uint16_t)((UCA1IE & (uint16_t)~UCTXCPTIE) | UCRXIE | UCTXIE);
+
+    /*
+     * Arm TX like UCA0 uart_send(): OR UCTXIE onto the existing IE mask.
+     * Do not rewrite the whole UCA1IE word — that raced with RX IE and
+     * could leave UCTXIE ineffective if UCTXIFG was already clear.
+     * Kick the first byte here so UCTXIFG re-arms for the rest (or arm
+     * UCTXCPTIE immediately for a one-byte frame).
+     */
+    UCA1IE &= (uint16_t)~(UCTXIE | UCTXCPTIE);
+    UCA1IFG &= (uint16_t)~UCTXCPTIFG;
+
+    UCA1TXBUF = rs485_tx_buf[0];
+    rs485_tx_index = 1U;
+
+    if (rs485_tx_len > 1U) {
+        UCA1IE |= UCTXIE;                     /* refill TXBUF in eusci_a1_isr */
+    } else {
+        UCA1IE |= UCTXCPTIE;                  /* last (only) byte already loaded */
+    }
+
     __enable_interrupt();
     return 1U;
 }
@@ -149,8 +167,12 @@ void __attribute__((interrupt(EUSCI_A1_VECTOR))) eusci_a1_isr(void)
             UCA1TXBUF = rs485_tx_buf[rs485_tx_index];
             rs485_tx_index++;
         } else {
-            /* All bytes accepted by TXBUF — wait for last bit shifted out */
+            /*
+             * All bytes in TXBUF. Clear stale UCTXCPTIFG first (USCI42 sets
+             * it after every byte), then wait for the final stop bit.
+             */
             UCA1IE &= (uint16_t)~UCTXIE;
+            UCA1IFG &= (uint16_t)~UCTXCPTIFG;
             UCA1IE |= UCTXCPTIE;
         }
         break;
