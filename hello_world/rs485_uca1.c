@@ -19,8 +19,8 @@
 #define RS485_TX_BIT   BIT5                   /* P2.5 */
 #define RS485_RX_BIT   BIT6                   /* P2.6 */
 
-/* 8 MHz / 115200 ≈ 69.44 → 69 ticks (~+0.64 % baud error) */
-#define RS485_BIT_TICKS       69U
+/* 8 MHz / 57600 ≈ 138.89 → 139 ticks (~-0.08 % baud error) */
+#define RS485_BIT_TICKS       139U
 #define RS485_HALF_BIT_TICKS  (RS485_BIT_TICKS / 2U)
 
 #define SOFT_IDLE  0U

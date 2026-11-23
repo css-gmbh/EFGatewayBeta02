@@ -3,7 +3,7 @@
  *
  * UART (UCA0): TX = P2.0, RX = P2.1, 19200 baud, 8N1
  * RS-485: TX = P2.5, RX = P2.6 (inverted UART idle-low soft-UART),
- *         DE = P4.3, /RE = P4.2, 115200 8N1
+ *         DE = P4.3, /RE = P4.2, 57600 8N1
  * Clock: DCO / SMCLK = 8 MHz
  *
  * UCA0 RX: interrupt-driven into a linear 256-byte buffer from index 0.

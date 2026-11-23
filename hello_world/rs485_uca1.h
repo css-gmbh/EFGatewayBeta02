@@ -5,7 +5,7 @@
  *   RX  = P2.6
  *   DE  = P4.3 (driver enable, active high)
  *   /RE = P4.2 (receiver enable, active low)
- *   115200 baud, 8N1 inverted, SMCLK = 8 MHz
+ *   57600 baud, 8N1 inverted, SMCLK = 8 MHz
  */
 
 #ifndef RS485_UCA1_H
