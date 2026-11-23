@@ -4,10 +4,9 @@
  * UART (UCA0): TX = P2.0, RX = P2.1, 19200 baud, 8N1
  * Clock: DCO / SMCLK = 8 MHz (TI recommended baud settings for 19200)
  *
- * RX is interrupt-driven into a linear 256-byte buffer starting at index 0.
- * Each received byte restarts Timer_A0 (~50 ms). When the idle timer expires,
- * the buffer pointer (and length) are passed to a placeholder, then RX resumes
- * at index 0.
+ * RX: interrupt-driven into a linear 256-byte buffer from index 0.
+ *      ~50 ms idle (Timer_A0) → rx_frame_placeholder(), then restart at 0.
+ * TX: interrupt-driven (UCTXIE); uart_send() queues bytes and returns.
  */
 
 #include <msp430.h>
@@ -22,6 +21,7 @@
 #define UART_UCMCTLW (UCOS16 | (0xB6U << 8))
 
 #define RX_BUF_SIZE  256U
+#define TX_BUF_SIZE  256U
 
 /*
  * Idle gap that ends a receive frame.
@@ -31,6 +31,11 @@
 
 static volatile uint8_t rx_buf[RX_BUF_SIZE];
 static volatile uint16_t rx_len;              /* next write index / byte count */
+
+static uint8_t tx_buf[TX_BUF_SIZE];
+static volatile uint16_t tx_len;              /* bytes queued for TX */
+static volatile uint16_t tx_index;            /* next byte to send */
+static volatile uint8_t tx_busy;              /* 1 while ISR-driven TX active */
 
 /* Placeholder for a completed UART frame (after ~50 ms RX idle). */
 static void rx_frame_placeholder(volatile uint8_t *buf, uint16_t len)
@@ -90,22 +95,58 @@ static void uart_init_uca0(void)
     UCA0MCTLW = UART_UCMCTLW;
     UCA0CTLW0 &= ~UCSWRST;                    /* release for operation */
 
-    UCA0IE |= UCRXIE;                         /* enable RX interrupt */
+    UCA0IE = UCRXIE;                          /* RX IRQ on; TX IRQ enabled by uart_send() */
 }
 
-static void uart_putc(char c)
+/* 1 if a previous uart_send() is still in progress */
+static uint8_t uart_tx_busy(void)
 {
-    while (!(UCA0IFG & UCTXIFG)) {
-        /* wait for TX buffer empty */
-    }
-    UCA0TXBUF = (unsigned char)c;
+    return tx_busy;
 }
 
-static void uart_puts(const char *s)
+/*
+ * Interrupt-based send: copy up to TX_BUF_SIZE bytes and start UCTXIE.
+ * Returns 1 if accepted, 0 if busy / invalid.
+ */
+static uint8_t uart_send(const uint8_t *data, uint16_t len)
 {
-    while (*s) {
-        uart_putc(*s++);
+    uint16_t i;
+
+    if ((data == 0) || (len == 0U) || (len > TX_BUF_SIZE)) {
+        return 0U;
     }
+
+    __disable_interrupt();
+    if (tx_busy != 0U) {
+        __enable_interrupt();
+        return 0U;
+    }
+
+    for (i = 0U; i < len; i++) {
+        tx_buf[i] = data[i];
+    }
+    tx_len = len;
+    tx_index = 0U;
+    tx_busy = 1U;
+    UCA0IE |= UCTXIE;                         /* TXBUF-empty IRQ drives the send */
+    __enable_interrupt();
+    return 1U;
+}
+
+static uint8_t uart_send_str(const char *s)
+{
+    uint16_t len = 0U;
+
+    if (s == 0) {
+        return 0U;
+    }
+    while (s[len] != '\0') {
+        len++;
+        if (len > TX_BUF_SIZE) {
+            return 0U;
+        }
+    }
+    return uart_send((const uint8_t *)s, len);
 }
 
 int main(void)
@@ -128,9 +169,13 @@ int main(void)
         volatile unsigned long i;
 
         P1OUT ^= BIT0;
-        uart_puts("Hello World\r\n");
 
-        /* Rough ~0.5 s delay at 8 MHz; RX + idle-timer ISRs still run */
+        /* Non-blocking TX; bytes go out via UCTXIE in eusci_a0_isr */
+        if (uart_tx_busy() == 0U) {
+            (void)uart_send_str("Hello World\r\n");
+        }
+
+        /* Rough ~0.5 s delay at 8 MHz; RX/TX/idle-timer ISRs still run */
         i = 400000UL;
         do {
             i--;
@@ -139,7 +184,7 @@ int main(void)
 }
 
 /*
- * eUSCI_A0 RX ISR — append bytes from index 0; restart idle timer.
+ * eUSCI_A0 ISR — RX fill + TX drain.
  */
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = EUSCI_A0_VECTOR
@@ -153,6 +198,7 @@ void __attribute__((interrupt(EUSCI_A0_VECTOR))) eusci_a0_isr(void)
     switch (UCA0IV) {
     case UCIV__NONE:
         break;
+
     case UCIV__UCRXIFG: {
         uint8_t c = (uint8_t)UCA0RXBUF;       /* reading RXBUF clears UCRXIFG */
 
@@ -164,6 +210,17 @@ void __attribute__((interrupt(EUSCI_A0_VECTOR))) eusci_a0_isr(void)
         /* If full, wait for idle timeout to hand off and reset */
         break;
     }
+
+    case UCIV__UCTXIFG:
+        if (tx_index < tx_len) {
+            UCA0TXBUF = tx_buf[tx_index];
+            tx_index++;
+        } else {
+            UCA0IE &= (uint16_t)~UCTXIE;      /* done — stop TX interrupts */
+            tx_busy = 0U;
+        }
+        break;
+
     default:
         break;
     }

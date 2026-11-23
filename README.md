@@ -10,8 +10,9 @@ The program in [`hello_world/main.c`](hello_world/main.c):
 2. Configures **eUSCI_A0 UART** — **TX P2.0**, **RX P2.1**, **19200 baud 8N1**
 3. Enables **interrupt RX** into a linear **256-byte** buffer (from index 0); each byte restarts **Timer_A0 (~50 ms idle)**
 4. On idle timeout, passes the buffer pointer to `rx_frame_placeholder()`, then resumes RX at index 0
-5. Unlocks GPIO (`LOCKLPM5`)
-6. In a loop: toggles **P1.0** and transmits `Hello World\r\n`
+5. Provides **interrupt TX** via `uart_send()` / `uart_send_str()` (`UCTXIE` drains a 256-byte TX buffer in the UCA0 ISR)
+6. Unlocks GPIO (`LOCKLPM5`)
+7. In a loop: toggles **P1.0** and queues `Hello World\r\n` for interrupt TX
 
 P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). UART pinmux matches the requested UCA0 mapping on this MCU.
 
@@ -19,7 +20,7 @@ P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs)
 
 ```
 hello_world/
-  main.c                         # blink + UART RX framing
+  main.c                         # blink + UART RX framing + interrupt TX
   crc16_iso15693.c/.h            # ISO 15693-style CRC-16 helper (poly 0x0810)
   Makefile                       # open-toolchain build (msp430-elf-gcc)
 ccs/msp430fr5962_hello_world/    # Code Composer Studio project
