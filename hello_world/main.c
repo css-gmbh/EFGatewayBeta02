@@ -2,14 +2,13 @@
  * MSP430FR5962 hello world — P1.0 blink + UCA0 UART + UCA1 RS-485
  *
  * UART (UCA0): TX = P2.0, RX = P2.1, 19200 baud, 8N1
- * RS-485: TX = P2.5, RX = P2.6 (inverted UART idle-low soft-UART),
- *         DE = P4.3, /RE = P4.2, 57600 8N1
+ * RS-485 (UCA1): TX = P2.5, RX = P2.6, DE = P4.3, /RE = P4.2, 57600 8N1
  * Clock: DCO / SMCLK = 8 MHz
  *
  * UCA0 RX: interrupt-driven into a linear 256-byte buffer from index 0.
  *          ~50 ms idle (Timer_A0) → rx_frame_placeholder(), then restart at 0.
  * UCA0 TX: interrupt-driven (UCTXIE); uart_send() queues bytes and returns.
- * RS-485: see rs485_uca1.c (inverted soft-UART TX/RX, DE/RE, Timer_A1 idle).
+ * UCA1: see rs485_uca1.c (interrupt TX/RX, DE/RE, Timer_A1 idle framing).
  */
 
 #include <msp430.h>

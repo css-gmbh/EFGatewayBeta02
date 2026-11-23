@@ -1,11 +1,11 @@
 /*
- * Half-duplex RS-485 with inverted UART polarity (idle-low)
+ * eUSCI_A1 UART as half-duplex RS-485
  *
- *   TX  = P2.5 (soft-UART — eUSCI has no line invert on FR5962)
- *   RX  = P2.6
+ *   TX  = P2.5 (UCA1TXD)
+ *   RX  = P2.6 (UCA1RXD)
  *   DE  = P4.3 (driver enable, active high)
  *   /RE = P4.2 (receiver enable, active low)
- *   57600 baud, 8N1 inverted, SMCLK = 8 MHz
+ *   57600 baud, 8N1, SMCLK = 8 MHz
  */
 
 #ifndef RS485_UCA1_H
@@ -31,7 +31,7 @@ uint8_t rs485_tx_busy(void);
 
 /**
  * Optional app hook: called from Timer_A1 idle ISR after ~50 ms RX silence.
- * Default weak stub does nothing; override in application if needed.
+ * Default stub does nothing useful beyond CRC touch; override if needed.
  */
 void rs485_rx_frame_placeholder(volatile uint8_t *buf, uint16_t len);
 
