@@ -1,7 +1,8 @@
 /*
- * MSP430FR5962 hello world — P1.0 blink + UCA0 UART + UCA1 RS-485
+ * MSP430FR5962 hello world — P1.0 blink + UCA0/UCA2 UART + UCA1 RS-485
  *
  * UART (UCA0): TX = P2.0, RX = P2.1, 19200 baud, 8N1
+ * UART (UCA2): TX = P5.4, RX = P5.5, 19200 baud, 8N1 (same framing as UCA0)
  * RS-485 (UCA1): TX = P2.5, RX = P2.6, DE = P4.3, /RE = P4.2, 57600 8N1
  * Clock: DCO / SMCLK = 8 MHz
  *
@@ -9,6 +10,7 @@
  *          ~50 ms idle (Timer_A0) → rx_frame_placeholder(), then restart at 0.
  * UCA0 TX: interrupt-driven (UCTXIE); uart_send() queues bytes and returns.
  * UCA1: see rs485_uca1.c (interrupt TX/RX, DE/RE, Timer_A1 idle framing).
+ * UCA2: see uart_uca2.c (same IRQ TX/RX + Timer_A2 idle framing as UCA0).
  */
 
 #include <msp430.h>
@@ -16,6 +18,7 @@
 
 #include "crc16_iso15693.h"
 #include "rs485_uca1.h"
+#include "uart_uca2.h"
 
 /* TI UG recommended for 8 MHz SMCLK, 19200 baud, oversampling (UCOS16=1):
  * UCBRx=26, UCBRFx=0, UCBRSx=0xB6
@@ -164,6 +167,7 @@ int main(void)
 
     uart_init_uca0();
     rs485_init();                             /* UCA1 RS-485 before GPIO unlock */
+    uart_uca2_init();                         /* UCA2 UART before GPIO unlock */
 
     PM5CTL0 &= ~LOCKLPM5;                     /* unlock GPIO */
 

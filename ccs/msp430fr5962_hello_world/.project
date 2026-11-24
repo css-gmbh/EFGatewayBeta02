@@ -49,6 +49,16 @@
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/hello_world/rs485_uca1.h</locationURI>
 		</link>
+		<link>
+			<name>uart_uca2.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/hello_world/uart_uca2.c</locationURI>
+		</link>
+		<link>
+			<name>uart_uca2.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/hello_world/uart_uca2.h</locationURI>
+		</link>
 	</linkedResources>
 </projectDescription>
 

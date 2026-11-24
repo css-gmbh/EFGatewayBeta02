@@ -12,16 +12,18 @@ The program in [`hello_world/main.c`](hello_world/main.c):
 4. On idle timeout, passes the buffer pointer to `rx_frame_placeholder()`, then resumes RX at index 0
 5. Provides **interrupt TX** via `uart_send()` / `uart_send_str()` (`UCTXIE` drains a 256-byte TX buffer in the UCA0 ISR)
 6. Initializes **eUSCI_A1 RS-485** via [`rs485_uca1`](hello_world/rs485_uca1.h) — **TX P2.5**, **RX P2.6**, **DE P4.3**, **/RE P4.2**, **57600 baud 8N1**
-7. Unlocks GPIO (`LOCKLPM5`)
-8. In a loop: toggles **P1.0** and queues `Hello World\r\n` for interrupt TX on UCA0
+7. Initializes **eUSCI_A2 UART** via [`uart_uca2`](hello_world/uart_uca2.h) — **TX P5.4**, **RX P5.5**, **19200 baud 8N1** (same config as UCA0)
+8. Unlocks GPIO (`LOCKLPM5`)
+9. In a loop: toggles **P1.0** and queues `Hello World\r\n` for interrupt TX on UCA0
 
-P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). Pinmux matches the requested UCA0 / UCA1 mappings on this MCU.
+P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). Pinmux matches the requested UCA0 / UCA1 / UCA2 mappings on this MCU.
 
 ## Layout
 
 ```
 hello_world/
   main.c                         # blink + UCA0 UART RX framing + interrupt TX
+  uart_uca2.c/.h                 # UCA2 UART (19200 8N1, IRQ TX/RX, idle framing)
   rs485_uca1.c/.h                # UCA1 half-duplex RS-485 (DE/RE, IRQ TX/RX)
   crc16_iso15693.c/.h            # ISO 15693-style CRC-16 helper (poly 0x0810)
   Makefile                       # open-toolchain build (msp430-elf-gcc)
@@ -36,6 +38,14 @@ The CCS project **links** the shared `hello_world/` sources (no duplicated appli
 ### CRC helper
 
 [`crc16_iso15693()`](hello_world/crc16_iso15693.h) implements an ISO 15693-style CRC-16 (init `0xFFFF`, reflected/LSB-first, final XOR `0xFFFF`) with generator polynomial **`0x0810`**. The RX frame placeholders call it on each completed buffer.
+
+### UART (UCA2)
+
+[`uart_uca2_init()`](hello_world/uart_uca2.h) / `uart_uca2_send()` mirror UCA0:
+
+- **TX P5.4 / RX P5.5**, **19200 8N1**
+- Interrupt RX into a 256-byte buffer; **Timer_A2 ~50 ms idle** → `uart_uca2_rx_frame_placeholder()`
+- Interrupt TX via `UCTXIE`
 
 ### RS-485 (UCA1)
 

@@ -36,7 +36,7 @@ ifneq ($(SUPPORT_FILE_DIRECTORY),)
   LDFLAGS += -L$(SUPPORT_FILE_DIRECTORY) -T $(DEVICE).ld
 endif
 
-SRCS = main.c crc16_iso15693.c rs485_uca1.c
+SRCS = main.c crc16_iso15693.c rs485_uca1.c uart_uca2.c
 OBJS = $(SRCS:.c=.o)
 
 .PHONY: all clean flash size
