@@ -13,8 +13,9 @@ The program in [`hello_world/main.c`](hello_world/main.c):
 5. Provides **interrupt TX** via `uart_send()` / `uart_send_str()` (`UCTXIE` drains a 256-byte TX buffer in the UCA0 ISR)
 6. Initializes **eUSCI_A1 RS-485** via [`rs485_uca1`](hello_world/rs485_uca1.h) — **TX P2.5**, **RX P2.6**, **DE P4.3**, **/RE P4.2**, **57600 baud 8N1**
 7. Initializes **eUSCI_A2 UART** via [`uart_uca2`](hello_world/uart_uca2.h) — **TX P5.4**, **RX P5.5**, **19200 baud 8N1** (same config as UCA0)
-8. Unlocks GPIO (`LOCKLPM5`)
-9. In a loop: toggles **P1.0** and queues `Hello World\r\n` for interrupt TX on UCA0
+8. Starts a **SysTick** on **Timer_A3** at a **10 ms** interval (`systick_10ms` free-running counter)
+9. Unlocks GPIO (`LOCKLPM5`)
+10. In a loop: toggles **P1.0** and queues `Hello World\r\n` for interrupt TX on UCA0
 
 P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). Pinmux matches the requested UCA0 / UCA1 / UCA2 mappings on this MCU.
 

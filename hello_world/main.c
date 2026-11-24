@@ -4,6 +4,7 @@
  * UART (UCA0): TX = P2.0, RX = P2.1, 19200 baud, 8N1
  * UART (UCA2): TX = P5.4, RX = P5.5, 19200 baud, 8N1 (same framing as UCA0)
  * RS-485 (UCA1): TX = P2.5, RX = P2.6, DE = P4.3, /RE = P4.2, 57600 8N1
+ * SysTick: Timer_A3 CCR0, 10 ms tick (SMCLK/8 = 1 MHz → 10000 counts)
  * Clock: DCO / SMCLK = 8 MHz
  *
  * UCA0 RX: interrupt-driven into a linear 256-byte buffer from index 0.
@@ -35,6 +36,9 @@
  */
 #define RX_IDLE_TIMER_TICKS  50000U
 
+/* SysTick: SMCLK/8 = 1 MHz → 10000 ticks = 10 ms */
+#define SYSTICK_TIMER_TICKS  10000U
+
 static volatile uint8_t rx_buf[RX_BUF_SIZE];
 static volatile uint16_t rx_len;              /* next write index / byte count */
 
@@ -42,6 +46,9 @@ static uint8_t tx_buf[TX_BUF_SIZE];
 static volatile uint16_t tx_len;              /* bytes queued for TX */
 static volatile uint16_t tx_index;            /* next byte to send */
 static volatile uint8_t tx_busy;              /* 1 while ISR-driven TX active */
+
+/* Free-running 10 ms tick count (wraps); advanced in TIMER3_A0 ISR */
+static volatile uint32_t systick_10ms;
 
 /* Placeholder for a completed UART frame (after ~50 ms RX idle). */
 static void rx_frame_placeholder(volatile uint8_t *buf, uint16_t len)
@@ -85,6 +92,17 @@ static void rx_idle_timer_restart(void)
 static void rx_idle_timer_stop(void)
 {
     TA0CTL = TASSEL__SMCLK | ID__8 | MC__STOP;
+}
+
+static void systick_init(void)
+{
+    /* Timer_A3 free-running up-mode: CCR0 interrupt every 10 ms */
+    TA3CTL = TASSEL__SMCLK | ID__8 | MC__STOP | TACLR;
+    TA3EX0 = TAIDEX_0;                        /* SMCLK/8 = 1 MHz */
+    TA3CCR0 = SYSTICK_TIMER_TICKS - 1U;
+    TA3CCTL0 = CCIE;
+    TA3CTL = TASSEL__SMCLK | ID__8 | MC__UP | TACLR;
+    systick_10ms = 0U;
 }
 
 static void uart_init_uca0(void)
@@ -161,6 +179,7 @@ int main(void)
 
     clock_init_8mhz();
     rx_idle_timer_init();
+    systick_init();                           /* Timer_A3 10 ms tick */
 
     P1DIR |= BIT0;                            /* LED / demo GPIO */
     P1OUT &= ~BIT0;
@@ -255,4 +274,19 @@ void __attribute__((interrupt(TIMER0_A0_VECTOR))) timer0_a0_isr(void)
         rx_frame_placeholder(rx_buf, len);    /* hand off buffer pointer */
         rx_len = 0U;                          /* next frame starts at index 0 */
     }
+}
+
+/*
+ * Timer_A3 CCR0 — SysTick every 10 ms.
+ */
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector = TIMER3_A0_VECTOR
+__interrupt void timer3_a0_isr(void)
+#elif defined(__GNUC__)
+void __attribute__((interrupt(TIMER3_A0_VECTOR))) timer3_a0_isr(void)
+#else
+#error "Unsupported compiler for TIMER3_A0 ISR"
+#endif
+{
+    systick_10ms++;
 }
