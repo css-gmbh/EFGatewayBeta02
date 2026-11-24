@@ -11,17 +11,20 @@ The program in [`hello_world/main.c`](hello_world/main.c):
 3. Enables **interrupt RX** into a linear **256-byte** buffer (from index 0); each byte restarts **Timer_A0 (~50 ms idle)**
 4. On idle timeout, passes the buffer pointer to `rx_frame_placeholder()`, then resumes RX at index 0
 5. Provides **interrupt TX** via `uart_send()` / `uart_send_str()` (`UCTXIE` drains a 256-byte TX buffer in the UCA0 ISR)
-6. Initializes **eUSCI_A1 RS-485** via [`rs485_uca1`](hello_world/rs485_uca1.h) — **TX P2.5**, **RX P2.6**, **DE P4.3**, **/RE P4.2**, **115200 baud 8N1**
-7. Unlocks GPIO (`LOCKLPM5`)
-8. In a loop: toggles **P1.0** and queues `Hello World\r\n` for interrupt TX on UCA0
+6. Initializes **eUSCI_A1 RS-485** via [`rs485_uca1`](hello_world/rs485_uca1.h) — **TX P2.5**, **RX P2.6**, **DE P4.3**, **/RE P4.2**, **57600 baud 8N1**
+7. Initializes **eUSCI_A2 UART** via [`uart_uca2`](hello_world/uart_uca2.h) — **TX P5.4**, **RX P5.5**, **19200 baud 8N1** (same config as UCA0)
+8. Starts a **SysTick** on **Timer_A3** at a **10 ms** interval (`systick_10ms` free-running counter)
+9. Unlocks GPIO (`LOCKLPM5`)
+10. In a loop: toggles **P1.0** and queues `Hello World\r\n` for interrupt TX on UCA0
 
-P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). Pinmux matches the requested UCA0 / UCA1 mappings on this MCU.
+P1.0 is the conventional TI LaunchPad demo LED pin (remap if your board differs). Pinmux matches the requested UCA0 / UCA1 / UCA2 mappings on this MCU.
 
 ## Layout
 
 ```
 hello_world/
   main.c                         # blink + UCA0 UART RX framing + interrupt TX
+  uart_uca2.c/.h                 # UCA2 UART (19200 8N1, IRQ TX/RX, idle framing)
   rs485_uca1.c/.h                # UCA1 half-duplex RS-485 (DE/RE, IRQ TX/RX)
   crc16_iso15693.c/.h            # ISO 15693-style CRC-16 helper (poly 0x0810)
   Makefile                       # open-toolchain build (msp430-elf-gcc)
@@ -37,11 +40,19 @@ The CCS project **links** the shared `hello_world/` sources (no duplicated appli
 
 [`crc16_iso15693()`](hello_world/crc16_iso15693.h) implements an ISO 15693-style CRC-16 (init `0xFFFF`, reflected/LSB-first, final XOR `0xFFFF`) with generator polynomial **`0x0810`**. The RX frame placeholders call it on each completed buffer.
 
+### UART (UCA2)
+
+[`uart_uca2_init()`](hello_world/uart_uca2.h) / `uart_uca2_send()` mirror UCA0:
+
+- **TX P5.4 / RX P5.5**, **19200 8N1**
+- Interrupt RX into a 256-byte buffer; **Timer_A2 ~50 ms idle** → `uart_uca2_rx_frame_placeholder()`
+- Interrupt TX via `UCTXIE`
+
 ### RS-485 (UCA1)
 
 [`rs485_init()`](hello_world/rs485_uca1.h) / `rs485_send()` drive half-duplex RS-485 on UCA1:
 
-- **TX P2.5 / RX P2.6** (secondary pinmux), **115200 8N1**
+- **TX P2.5 / RX P2.6** (eUSCI_A1), **57600 8N1**
 - **DE P4.3** (active high), **/RE P4.2** (active low) — idle = receive; TX asserts DE and disables the receiver; `UCTXCPTIE` releases the bus after the last bit
 - Interrupt RX into a 256-byte buffer; **Timer_A1 ~50 ms idle** → `rs485_rx_frame_placeholder()`
 
@@ -123,6 +134,6 @@ Connect a USB–TTL adapter to **P2.0 (TX)** / **P2.1 (RX)** / GND at **19200 8N
 - You should see periodic `Hello World` lines from the MCU
 - Bytes you send fill `rx_buf[]` from index 0; after ~50 ms silence, `rx_frame_placeholder(buf, len)` is called and RX restarts at 0
 
-For RS-485 on UCA1, connect the transceiver to **P2.5 (TX)** / **P2.6 (RX)** / **P4.3 (DE)** / **P4.2 (/RE)** at **115200 8N1**. Use `rs485_send()` to transmit; received frames end after ~50 ms idle via `rs485_rx_frame_placeholder()`.
+For RS-485 on UCA1, connect the transceiver to **P2.5 (TX)** / **P2.6 (RX)** / **P4.3 (DE)** / **P4.2 (/RE)** at **57600 8N1**. Use `rs485_send()` to transmit; received frames end after ~50 ms idle via `rs485_rx_frame_placeholder()`.
 
 You can also load the `.out` with UniFlash onto **MSP430FR5962**.

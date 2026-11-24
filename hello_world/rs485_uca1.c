@@ -8,9 +8,9 @@
 #include "crc16_iso15693.h"
 #include "rs485_uca1.h"
 
-/* 115200 @ 8 MHz SMCLK, UCOS16=1: UCBRx=4, UCBRFx=5, UCBRSx=0x55 (TI UG) */
-#define RS485_UCBRW    4U
-#define RS485_UCMCTLW  (UCOS16 | (5U << 4) | (0x55U << 8))
+/* 57600 @ 8 MHz SMCLK, UCOS16=1: UCBRx=8, UCBRFx=10, UCBRSx=0xF7 (TI UG) */
+#define RS485_UCBRW    8U
+#define RS485_UCMCTLW  (UCOS16 | (10U << 4) | (0xF7U << 8))
 
 #define RS485_IDLE_TIMER_TICKS  50000U        /* ~50 ms at SMCLK/8 = 1 MHz */
 
@@ -110,8 +110,20 @@ uint8_t rs485_send(const uint8_t *data, uint16_t len)
     rs485_tx_active = 1U;
 
     rs485_set_tx_mode();
-    UCA1IFG &= (uint16_t)~UCTXCPTIFG;         /* clear stale complete flag */
-    UCA1IE = (uint16_t)((UCA1IE & (uint16_t)~UCTXCPTIE) | UCRXIE | UCTXIE);
+
+    /* Disarm complete IRQ; load first byte; arm TXBUF-empty for the rest */
+    UCA1IE &= (uint16_t)~(UCTXIE | UCTXCPTIE);
+    UCA1IFG &= (uint16_t)~UCTXCPTIFG;
+
+    UCA1TXBUF = rs485_tx_buf[0];
+    rs485_tx_index = 1U;
+
+    if (rs485_tx_len > 1U) {
+        UCA1IE |= UCTXIE;
+    } else {
+        UCA1IE |= UCTXCPTIE;                  /* single-byte frame */
+    }
+
     __enable_interrupt();
     return 1U;
 }
@@ -149,8 +161,12 @@ void __attribute__((interrupt(EUSCI_A1_VECTOR))) eusci_a1_isr(void)
             UCA1TXBUF = rs485_tx_buf[rs485_tx_index];
             rs485_tx_index++;
         } else {
-            /* All bytes accepted by TXBUF — wait for last bit shifted out */
+            /*
+             * All bytes in TXBUF. Clear stale UCTXCPTIFG first (USCI42 sets
+             * it after every byte), then wait for the final stop bit.
+             */
             UCA1IE &= (uint16_t)~UCTXIE;
+            UCA1IFG &= (uint16_t)~UCTXCPTIFG;
             UCA1IE |= UCTXCPTIE;
         }
         break;
